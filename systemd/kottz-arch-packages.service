@@ -18,5 +18,4 @@ LoadCredentialEncrypted=openrouter_api_key:/etc/credstore.encrypted/kottz.arch-p
 LoadCredentialEncrypted=github_token:/etc/credstore.encrypted/kottz.arch-packages.github_token
 RuntimeDirectory=kottz-arch-packages
 RuntimeDirectoryMode=0700
-PrivateTmp=true
 ExecStart=/srv/kottz/packaging/arch-packages/scripts/maintenance-entrypoint --push

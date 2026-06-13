@@ -46,6 +46,8 @@ maintenance path should not build packages directly with host `makepkg`.
 The Proxmox container must allow nested mount operations. If `doctor` reports
 `clean chroot bind mounts allowed` as failed, enable nesting for the CT from the
 Proxmox host or move the builder to a small VM.
+The maintenance unit intentionally does not use `PrivateTmp`; Arch devtools
+clean chroot builds need predictable mount namespace behavior.
 
 Typical Proxmox host command:
 

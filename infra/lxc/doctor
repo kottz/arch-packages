@@ -35,24 +35,31 @@ warn() {
 }
 
 clean_chroot_mount_probe() {
-  local probe_dir
+  local probe_root
+  local probe_dev
   local mounted=0
 
   [[ $EUID -eq 0 ]] || return 1
   [[ -d $CHROOT_DIR ]] || return 1
 
-  probe_dir=$(mktemp -d "$CHROOT_DIR/.doctor-mount.XXXXXX") || return 1
-  if mount --bind /dev "$probe_dir"; then
+  probe_root=$(mktemp -d "$CHROOT_DIR/.doctor-root.XXXXXX") || return 1
+  probe_dev=$probe_root/dev
+  mkdir "$probe_dev" || {
+    rmdir "$probe_root" 2>/dev/null || true
+    return 1
+  }
+
+  if mount --bind /dev "$probe_dev"; then
     mounted=1
   fi
 
   if [[ $mounted -eq 1 ]]; then
-    umount "$probe_dir" || {
-      rmdir "$probe_dir" 2>/dev/null || true
+    umount "$probe_dev" || {
+      rmdir "$probe_dev" "$probe_root" 2>/dev/null || true
       return 1
     }
   fi
-  rmdir "$probe_dir" 2>/dev/null || true
+  rmdir "$probe_dev" "$probe_root" 2>/dev/null || true
 
   [[ $mounted -eq 1 ]]
 }

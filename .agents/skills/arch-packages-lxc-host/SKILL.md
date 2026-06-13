@@ -42,6 +42,8 @@ On Proxmox LXC, clean chroot builds require nested mount support; if the bind
 mount probe fails, enable CT nesting/keyctl or use a VM.
 Bootstrap should remove incomplete clean-chroot directories when
 `etc/makepkg.conf` is missing.
+Do not enable `PrivateTmp` on the maintenance unit; clean chroot builds need
+predictable mount namespace behavior.
 
 ## Secrets
 
