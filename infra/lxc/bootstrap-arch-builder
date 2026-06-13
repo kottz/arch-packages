@@ -18,6 +18,7 @@ ARCH_PACKAGES_DIR=${KOTTZ_ARCH_PACKAGES_DIR:-"$PACKAGING_ROOT/arch-packages"}
 SOURCE_ROOT=${KOTTZ_SOURCE_ROOT:-/srv/kottz/src}
 REPO_DIR=${KOTTZ_REPO_DIR:-/srv/kottz/repo/x86_64}
 CHROOT_DIR=${KOTTZ_CHROOT_DIR:-/srv/kottz/chroot}
+CHROOT_BASE=$CHROOT_DIR/root
 SECRETS_ROOT=${KOTTZ_SECRETS_ROOT:-/srv/kottz/secrets}
 SECRETS_DIR=${KOTTZ_SECRETS_DIR:-"$SECRETS_ROOT/kottz-secrets"}
 SECRETS_FILE=${KOTTZ_SECRETS_FILE:-"$SECRETS_DIR/secrets/arch-packages.enc.yaml"}
@@ -115,6 +116,37 @@ ensure_service_ownership() {
     [[ -e $path ]] || continue
     chown -R "$SERVICE_USER:$SERVICE_GROUP" "$path"
   done
+}
+
+remove_chroot_path() {
+  local path=$1
+
+  case $path in
+    "$CHROOT_DIR"/*) ;;
+    *)
+      printf 'error: refusing to remove path outside chroot dir: %s\n' "$path" >&2
+      exit 1
+      ;;
+  esac
+
+  if findmnt -R "$path" >/dev/null 2>&1; then
+    umount -R "$path" || true
+  fi
+  rm -rf --one-file-system "$path"
+}
+
+reset_incomplete_chroot() {
+  local chroot_copy=$CHROOT_DIR/$SERVICE_USER
+
+  if [[ -d $CHROOT_BASE && ! -f $CHROOT_BASE/etc/makepkg.conf ]]; then
+    printf 'removing incomplete clean chroot at %s\n' "$CHROOT_BASE"
+    remove_chroot_path "$CHROOT_BASE"
+  fi
+
+  if [[ -d $chroot_copy && ! -f $chroot_copy/etc/makepkg.conf ]]; then
+    printf 'removing incomplete clean chroot copy at %s\n' "$chroot_copy"
+    remove_chroot_path "$chroot_copy"
+  fi
 }
 
 ensure_repo() {
@@ -245,6 +277,7 @@ install_sudoers
 configure_git_identity
 ensure_directories
 ensure_service_ownership
+reset_incomplete_chroot
 install_caddy
 sync_current_checkout_if_needed
 ensure_secrets_repo

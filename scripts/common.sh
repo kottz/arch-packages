@@ -176,6 +176,13 @@ summarize_failure_log() {
     return
   fi
 
+  if grep -Eiq \
+    'etc/makepkg[.]conf not found|clean chroot .* is incomplete|mkarchroot completed but .*makepkg[.]conf is missing' \
+    "$log_file"; then
+    printf 'clean chroot is incomplete and needs bootstrap reset'
+    return
+  fi
+
   local line
   line=$(sed -n '/[^[:space:]]/p' "$log_file" | head -n1 || true)
   if [[ -z $line ]]; then

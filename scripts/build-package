@@ -13,12 +13,18 @@ command -v makechrootpkg >/dev/null 2>&1 || die "makechrootpkg is required; inst
 command -v sudo >/dev/null 2>&1 || die "sudo is required for clean chroot builds"
 
 ensure_clean_chroot() {
-  if [[ -d $CHROOT_BASE ]]; then
+  if [[ -d $CHROOT_BASE && ! -f $CHROOT_BASE/etc/makepkg.conf ]]; then
+    die "clean chroot at $CHROOT_BASE is incomplete; run infra/lxc/bootstrap-arch-builder as root to reset it"
+  fi
+
+  if [[ -f $CHROOT_BASE/etc/makepkg.conf ]]; then
     return
   fi
 
   printf 'creating clean chroot at %s\n' "$CHROOT_BASE"
   sudo -n mkarchroot "$CHROOT_BASE" base-devel
+  [[ -f $CHROOT_BASE/etc/makepkg.conf ]] ||
+    die "mkarchroot completed but $CHROOT_BASE/etc/makepkg.conf is missing"
 }
 
 ensure_clean_chroot

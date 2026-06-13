@@ -55,6 +55,10 @@ pct set <CTID> -features nesting=1,keyctl=1
 
 Stop and start the CT after changing container features.
 
+If `mkarchroot` was interrupted or failed before the container had the right
+features, rerun the bootstrap. It removes incomplete clean-chroot directories
+when `etc/makepkg.conf` is missing.
+
 Run Git commands in the managed checkouts as `kottz`, not root:
 
 ```bash

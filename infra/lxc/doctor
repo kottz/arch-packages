@@ -57,6 +57,11 @@ clean_chroot_mount_probe() {
   [[ $mounted -eq 1 ]]
 }
 
+clean_chroot_base_complete_or_absent() {
+  local chroot_base=$CHROOT_DIR/root
+  [[ ! -d $chroot_base || -f $chroot_base/etc/makepkg.conf ]]
+}
+
 check_source_repo() {
   local package=$1
   local repo=$SOURCE_ROOT/${PACKAGE_SOURCE_DIR[$package]}
@@ -119,6 +124,7 @@ check "source root writable" test -w "$SOURCE_ROOT"
 check "repo dir writable" test -w "$REPO_DIR"
 check "chroot parent exists" test -d "$CHROOT_DIR"
 check "clean chroot bind mounts allowed" clean_chroot_mount_probe
+check "clean chroot base complete or absent" clean_chroot_base_complete_or_absent
 
 if command -v sudo >/dev/null 2>&1 && id -u "$SERVICE_USER" >/dev/null 2>&1; then
   check "package checkout writable by $SERVICE_USER" sudo -u "$SERVICE_USER" test -w "$ROOT"
