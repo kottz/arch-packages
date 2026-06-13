@@ -37,7 +37,9 @@ before running the bootstrap. The bootstrap installs systemd credentials and
 uses the GitHub token credential for source repo clones.
 It also repairs ownership of `/srv/kottz/packaging`, `/srv/kottz/src`, and
 `/srv/kottz/repo` so the `kottz` service user can write logs, build outputs,
-and package repository files.
+and package repository files. It configures a Git identity for the `kottz`
+service user so automated rebases can create rewritten commits without an
+interactive login.
 
 Manual credential install:
 

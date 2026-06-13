@@ -11,6 +11,8 @@ CURRENT_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
 
 SERVICE_USER=${KOTTZ_SERVICE_USER:-kottz}
 SERVICE_GROUP=${KOTTZ_SERVICE_GROUP:-$SERVICE_USER}
+GIT_USER_NAME=${KOTTZ_GIT_USER_NAME:-Kottz Package Bot}
+GIT_USER_EMAIL=${KOTTZ_GIT_USER_EMAIL:-kottz@users.noreply.github.com}
 PACKAGING_ROOT=${KOTTZ_PACKAGING_ROOT:-/srv/kottz/packaging}
 ARCH_PACKAGES_DIR=${KOTTZ_ARCH_PACKAGES_DIR:-"$PACKAGING_ROOT/arch-packages"}
 SOURCE_ROOT=${KOTTZ_SOURCE_ROOT:-/srv/kottz/src}
@@ -90,6 +92,11 @@ $SERVICE_USER ALL=(root) NOPASSWD: /usr/bin/pacman
 EOF
   chmod 0440 "$sudoers"
   visudo -cf "$sudoers" >/dev/null
+}
+
+configure_git_identity() {
+  run_as_service_user git config --global user.name "$GIT_USER_NAME"
+  run_as_service_user git config --global user.email "$GIT_USER_EMAIL"
 }
 
 ensure_directories() {
@@ -233,6 +240,7 @@ EOF
 install_packages
 ensure_user
 install_sudoers
+configure_git_identity
 ensure_directories
 ensure_service_ownership
 install_caddy

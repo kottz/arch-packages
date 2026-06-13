@@ -117,6 +117,13 @@ summarize_failure_log() {
     return
   fi
 
+  if grep -Eiq \
+    'Please tell me who you are|empty ident name|unable to auto-detect email address' \
+    "$log_file"; then
+    printf 'Git committer identity is not configured'
+    return
+  fi
+
   local line
   line=$(sed -n '/[^[:space:]]/p' "$log_file" | head -n1 || true)
   if [[ -z $line ]]; then

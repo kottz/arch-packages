@@ -28,7 +28,8 @@ Use this skill in `kottz/arch-packages` when changing builder-host automation.
 The systemd service runs as the `kottz` user. Do not make package builds run as
 root; `makepkg` needs an unprivileged user. Bootstrap must ensure
 `/srv/kottz/packaging`, `/srv/kottz/src`, and `/srv/kottz/repo` are writable by
-`kottz`.
+`kottz`, and must configure a Git `user.name` and `user.email` for that user so
+automated rebases can create commits.
 
 ## Secrets
 
