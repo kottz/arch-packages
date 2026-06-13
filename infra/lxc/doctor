@@ -34,6 +34,29 @@ warn() {
   printf 'warn: %s\n' "$*"
 }
 
+clean_chroot_mount_probe() {
+  local probe_dir
+  local mounted=0
+
+  [[ $EUID -eq 0 ]] || return 1
+  [[ -d $CHROOT_DIR ]] || return 1
+
+  probe_dir=$(mktemp -d "$CHROOT_DIR/.doctor-mount.XXXXXX") || return 1
+  if mount --bind /dev "$probe_dir"; then
+    mounted=1
+  fi
+
+  if [[ $mounted -eq 1 ]]; then
+    umount "$probe_dir" || {
+      rmdir "$probe_dir" 2>/dev/null || true
+      return 1
+    }
+  fi
+  rmdir "$probe_dir" 2>/dev/null || true
+
+  [[ $mounted -eq 1 ]]
+}
+
 check_source_repo() {
   local package=$1
   local repo=$SOURCE_ROOT/${PACKAGE_SOURCE_DIR[$package]}
@@ -82,6 +105,8 @@ check "opencode available" command -v opencode
 check "sops available" command -v sops
 check "systemd-creds available" command -v systemd-creds
 check "timeout available" command -v timeout
+check "mount available" command -v mount
+check "umount available" command -v umount
 
 if id -u "$SERVICE_USER" >/dev/null 2>&1; then
   printf 'ok: service user %s exists\n' "$SERVICE_USER"
@@ -93,6 +118,7 @@ fi
 check "source root writable" test -w "$SOURCE_ROOT"
 check "repo dir writable" test -w "$REPO_DIR"
 check "chroot parent exists" test -d "$CHROOT_DIR"
+check "clean chroot bind mounts allowed" clean_chroot_mount_probe
 
 if command -v sudo >/dev/null 2>&1 && id -u "$SERVICE_USER" >/dev/null 2>&1; then
   check "package checkout writable by $SERVICE_USER" sudo -u "$SERVICE_USER" test -w "$ROOT"

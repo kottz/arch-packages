@@ -43,6 +43,18 @@ service user so automated rebases can create rewritten commits without an
 interactive login. Package builds use `mkarchroot` and `makechrootpkg`; the
 maintenance path should not build packages directly with host `makepkg`.
 
+The Proxmox container must allow nested mount operations. If `doctor` reports
+`clean chroot bind mounts allowed` as failed, enable nesting for the CT from the
+Proxmox host or move the builder to a small VM.
+
+Typical Proxmox host command:
+
+```bash
+pct set <CTID> -features nesting=1,keyctl=1
+```
+
+Stop and start the CT after changing container features.
+
 Run Git commands in the managed checkouts as `kottz`, not root:
 
 ```bash
