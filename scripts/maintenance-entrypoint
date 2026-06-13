@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+host=${HOSTNAME:-$(hostname)}
+scope=${*:-all}
+
+# shellcheck source=scripts/common.sh
+source "$ROOT/scripts/common.sh"
+
+if [[ ${KOTTZ_NOTIFY_START:-0} == 1 ]]; then
+  "$ROOT/scripts/notify-telegram" start \
+    "arch-packages maintenance started on $host for scope '$scope'" || true
+fi
+
+if [[ ${KOTTZ_SECRET_HEALTHCHECK:-1} == 1 ]]; then
+  set +e
+  secret_report=$("$ROOT/scripts/doctor-secrets" 2>&1)
+  secret_status=$?
+  set -e
+
+  if [[ $secret_status -ne 0 ]]; then
+    printf 'warning: secret health check failed:\n%s\n' "$secret_report" >&2
+    secret_summary=$(printf '%s\n' "$secret_report" | sed -n '/[^[:space:]]/p' | head -n1 | sanitize_for_notification)
+    "$ROOT/scripts/notify-telegram" warning \
+      "arch-packages secret health check failed on $host: $secret_summary" || true
+  fi
+fi
+
+if [[ ${KOTTZ_GITHUB_ACCESS_CHECK:-0} == 1 ]]; then
+  set +e
+  github_report=$("$ROOT/scripts/check-github-access" 2>&1)
+  github_status=$?
+  set -e
+
+  if [[ $github_status -ne 0 ]]; then
+    printf 'warning: GitHub access check failed:\n%s\n' "$github_report" >&2
+    github_summary=$(printf '%s\n' "$github_report" | sed -n '/[^[:space:]]/p' | head -n1 | sanitize_for_notification)
+    "$ROOT/scripts/notify-telegram" warning \
+      "arch-packages GitHub access check failed on $host: $github_summary" || true
+  fi
+fi
+
+if "$ROOT/scripts/weekly-maintenance" "$@"; then
+  if [[ ${KOTTZ_NOTIFY_SUCCESS:-1} == 1 ]]; then
+    "$ROOT/scripts/notify-telegram" success \
+      "arch-packages maintenance succeeded on $host for scope '$scope'" || true
+  fi
+else
+  status=$?
+  "$ROOT/scripts/notify-telegram" failure \
+    "arch-packages maintenance failed on $host for scope '$scope' with exit $status" || true
+  exit "$status"
+fi

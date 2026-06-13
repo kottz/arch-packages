@@ -10,8 +10,9 @@ for package in $(selected_packages "$@"); do
   repo=$(source_dir "$package")
   branch=${PACKAGE_BRANCH[$package]}
 
-  git -C "$repo" fetch origin "$branch" --tags
-  git -C "$repo" fetch upstream --tags
+  "$ROOT/scripts/git-with-credentials" git -C "$repo" fetch "${PACKAGE_FETCH_URL[$package]}" \
+    "$branch:refs/remotes/origin/$branch" --tags
+  "$ROOT/scripts/git-with-credentials" git -C "$repo" fetch upstream --tags
 
   latest=$(latest_upstream_tag "$package")
   [[ -n $latest ]] || die "$package has no matching upstream tag"

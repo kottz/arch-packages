@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+# shellcheck source=scripts/credentials
+source "$ROOT/scripts/credentials"
+
+level=${1:-}
+if [[ -n $level ]]; then
+  shift
+fi
+
+message=${*:-}
+if [[ -z $level || -z $message ]]; then
+  printf 'usage: %s <level> <message>\n' "${0##*/}" >&2
+  exit 2
+fi
+
+telegram_bot_token=$(credential_value telegram_bot_token TELEGRAM_BOT_TOKEN || true)
+telegram_chat_id=$(credential_value telegram_chat_id TELEGRAM_CHAT_ID || true)
+
+if [[ -z $telegram_bot_token || -z $telegram_chat_id ]]; then
+  exit 0
+fi
+
+command -v curl >/dev/null 2>&1 || {
+  printf 'warning: curl is required for Telegram notifications\n' >&2
+  exit 0
+}
+
+set +e
+curl --fail --silent --show-error --max-time 20 --retry 2 \
+  --data-urlencode "chat_id=${telegram_chat_id}" \
+  --data-urlencode "text=[$level] $message" \
+  --config - \
+  >/dev/null <<CURL
+url = "https://api.telegram.org/bot${telegram_bot_token}/sendMessage"
+CURL
+status=$?
+set -e
+
+if [[ $status -ne 0 ]]; then
+  printf 'warning: telegram notification failed with exit %s\n' "$status" >&2
+  exit "$status"
+fi

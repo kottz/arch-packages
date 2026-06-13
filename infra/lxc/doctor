@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+
+set -u
+
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
+SERVICE_USER=${KOTTZ_SERVICE_USER:-kottz}
+SOURCE_ROOT=${KOTTZ_SOURCE_ROOT:-/srv/kottz/src}
+REPO_DIR=${KOTTZ_REPO_DIR:-/srv/kottz/repo/x86_64}
+SECRETS_FILE=${KOTTZ_SECRETS_FILE:-/srv/kottz/secrets/kottz-secrets/secrets/arch-packages.enc.yaml}
+AGE_KEY_FILE=${SOPS_AGE_KEY_FILE:-/etc/kottz/age/arch-packages.txt}
+CREDSTORE_DIR=${KOTTZ_CREDSTORE_DIR:-/etc/credstore.encrypted}
+CRED_PREFIX=${KOTTZ_CREDENTIAL_PREFIX:-kottz.arch-packages}
+
+status=0
+
+check() {
+  local label=$1
+  shift
+  if "$@" >/dev/null 2>&1; then
+    printf 'ok: %s\n' "$label"
+  else
+    printf 'fail: %s\n' "$label"
+    status=1
+  fi
+}
+
+warn() {
+  printf 'warn: %s\n' "$*"
+}
+
+check "git available" command -v git
+check "makepkg available" command -v makepkg
+check "repo-add available" command -v repo-add
+check "age available" command -v age
+check "caddy available" command -v caddy
+check "curl available" command -v curl
+check "jq available" command -v jq
+check "opencode available" command -v opencode
+check "sops available" command -v sops
+check "systemd-creds available" command -v systemd-creds
+check "timeout available" command -v timeout
+
+if id -u "$SERVICE_USER" >/dev/null 2>&1; then
+  printf 'ok: service user %s exists\n' "$SERVICE_USER"
+else
+  printf 'fail: service user %s exists\n' "$SERVICE_USER"
+  status=1
+fi
+
+check "source root writable" test -w "$SOURCE_ROOT"
+check "repo dir writable" test -w "$REPO_DIR"
+
+if command -v caddy >/dev/null 2>&1; then
+  check "Caddy config valid" caddy validate --config "$ROOT/infra/caddy/Caddyfile" --adapter caddyfile
+fi
+
+if [[ -r $AGE_KEY_FILE ]]; then
+  printf 'ok: age identity readable\n'
+else
+  warn "age identity missing or unreadable: $AGE_KEY_FILE"
+fi
+
+if [[ -f $SECRETS_FILE ]]; then
+  printf 'ok: SOPS secrets file exists\n'
+else
+  warn "secrets file missing: $SECRETS_FILE"
+fi
+
+for credential in telegram_bot_token telegram_chat_id openrouter_api_key github_token; do
+  if [[ -f $CREDSTORE_DIR/$CRED_PREFIX.$credential ]]; then
+    printf 'ok: encrypted credential exists: %s\n' "$credential"
+  else
+    warn "encrypted credential missing: $CREDSTORE_DIR/$CRED_PREFIX.$credential"
+  fi
+done
+
+if command -v systemctl >/dev/null 2>&1; then
+  check "systemd unit installed" systemctl cat kottz-arch-packages.service
+  check "systemd timer installed" systemctl cat kottz-arch-packages.timer
+  check "caddy unit available" systemctl cat caddy.service
+fi
+
+exit "$status"

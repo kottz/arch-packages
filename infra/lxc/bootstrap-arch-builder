@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [[ $EUID -ne 0 ]]; then
+  printf 'error: run this script as root inside the Arch LXC\n' >&2
+  exit 1
+fi
+
+CURRENT_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
+
+SERVICE_USER=${KOTTZ_SERVICE_USER:-kottz}
+SERVICE_GROUP=${KOTTZ_SERVICE_GROUP:-$SERVICE_USER}
+PACKAGING_ROOT=${KOTTZ_PACKAGING_ROOT:-/srv/kottz/packaging}
+ARCH_PACKAGES_DIR=${KOTTZ_ARCH_PACKAGES_DIR:-"$PACKAGING_ROOT/arch-packages"}
+SOURCE_ROOT=${KOTTZ_SOURCE_ROOT:-/srv/kottz/src}
+REPO_DIR=${KOTTZ_REPO_DIR:-/srv/kottz/repo/x86_64}
+SECRETS_ROOT=${KOTTZ_SECRETS_ROOT:-/srv/kottz/secrets}
+SECRETS_DIR=${KOTTZ_SECRETS_DIR:-"$SECRETS_ROOT/kottz-secrets"}
+SECRETS_FILE=${KOTTZ_SECRETS_FILE:-"$SECRETS_DIR/secrets/arch-packages.enc.yaml"}
+AGE_DIR=${KOTTZ_AGE_DIR:-/etc/kottz/age}
+AGE_KEY_FILE=${SOPS_AGE_KEY_FILE:-"$AGE_DIR/arch-packages.txt"}
+PACKAGING_REPO=${KOTTZ_PACKAGING_REPO:-https://github.com/kottz/arch-packages.git}
+SECRETS_REPO=${KOTTZ_SECRETS_REPO:-https://github.com/kottz/kottz-secrets.git}
+BOOTSTRAP_GITHUB_TOKEN_FILE=
+
+pacman_packages=(
+  age
+  base-devel
+  caddy
+  curl
+  devtools
+  git
+  jq
+  opencode
+  openssh
+  pacman-contrib
+  rsync
+  sops
+  sudo
+)
+
+run_as_service_user() {
+  sudo -H -u "$SERVICE_USER" -- "$@"
+}
+
+run_git_as_service_user() {
+  if [[ -n $BOOTSTRAP_GITHUB_TOKEN_FILE && -s $BOOTSTRAP_GITHUB_TOKEN_FILE ]]; then
+    sudo -H -u "$SERVICE_USER" -- \
+      env GIT_TERMINAL_PROMPT=0 \
+        GIT_ASKPASS="$ARCH_PACKAGES_DIR/scripts/github-askpass" \
+        KOTTZ_GITHUB_TOKEN_FILE="$BOOTSTRAP_GITHUB_TOKEN_FILE" \
+        "$@"
+    return
+  fi
+
+  run_as_service_user "$@"
+}
+
+github_https_url() {
+  local url=$1
+  case $url in
+    git@github.com:*)
+      printf 'https://github.com/%s\n' "${url#git@github.com:}"
+      ;;
+    *)
+      printf '%s\n' "$url"
+      ;;
+  esac
+}
+
+ensure_user() {
+  if ! getent group "$SERVICE_GROUP" >/dev/null; then
+    groupadd --system "$SERVICE_GROUP"
+  fi
+
+  if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
+    useradd --system --create-home --gid "$SERVICE_GROUP" --shell /bin/bash "$SERVICE_USER"
+  fi
+}
+
+install_packages() {
+  pacman -Syu --needed --noconfirm "${pacman_packages[@]}"
+}
+
+install_sudoers() {
+  local sudoers=/etc/sudoers.d/kottz-arch-packages
+  cat >"$sudoers" <<EOF
+$SERVICE_USER ALL=(root) NOPASSWD: /usr/bin/pacman
+EOF
+  chmod 0440 "$sudoers"
+  visudo -cf "$sudoers" >/dev/null
+}
+
+ensure_directories() {
+  install -d -m 0755 -o "$SERVICE_USER" -g "$SERVICE_GROUP" "$PACKAGING_ROOT"
+  install -d -m 0755 -o "$SERVICE_USER" -g "$SERVICE_GROUP" "$SOURCE_ROOT"
+  install -d -m 0755 -o "$SERVICE_USER" -g "$SERVICE_GROUP" "$REPO_DIR"
+  install -d -m 0755 -o "$SERVICE_USER" -g "$SERVICE_GROUP" "$SECRETS_ROOT"
+  install -d -m 0700 -o root -g root "$AGE_DIR"
+}
+
+ensure_repo() {
+  local url=$1
+  local path=$2
+  url=$(github_https_url "$url")
+
+  if [[ -d $path/.git ]]; then
+    run_git_as_service_user git -C "$path" fetch --all --prune
+    return
+  fi
+
+  run_git_as_service_user git clone "$url" "$path"
+}
+
+sync_current_checkout_if_needed() {
+  if [[ $CURRENT_ROOT == "$ARCH_PACKAGES_DIR" ]]; then
+    return
+  fi
+
+  if [[ ! -d $ARCH_PACKAGES_DIR/.git ]]; then
+    ensure_repo "$PACKAGING_REPO" "$ARCH_PACKAGES_DIR"
+  fi
+}
+
+ensure_source_repos() {
+  # shellcheck source=../../config/packages.sh
+  source "$ARCH_PACKAGES_DIR/config/packages.sh"
+
+  local package source_path
+  for package in "${PACKAGES[@]}"; do
+    source_path="$SOURCE_ROOT/${PACKAGE_SOURCE_DIR[$package]}"
+    ensure_repo "${PACKAGE_ORIGIN[$package]}" "$source_path"
+    run_as_service_user git -C "$source_path" remote set-url origin "$(github_https_url "${PACKAGE_ORIGIN[$package]}")"
+    run_as_service_user git -C "$source_path" remote get-url upstream >/dev/null 2>&1 ||
+      run_as_service_user git -C "$source_path" remote add upstream "${PACKAGE_UPSTREAM[$package]}"
+    run_as_service_user git -C "$source_path" switch "${PACKAGE_BRANCH[$package]}"
+  done
+}
+
+install_units() {
+  install -m 0644 "$ARCH_PACKAGES_DIR/systemd/kottz-arch-packages.service" \
+    /etc/systemd/system/kottz-arch-packages.service
+  install -m 0644 "$ARCH_PACKAGES_DIR/systemd/kottz-arch-packages.timer" \
+    /etc/systemd/system/kottz-arch-packages.timer
+  systemctl daemon-reload
+
+  if [[ ${KOTTZ_ENABLE_TIMER:-1} == 1 ]]; then
+    systemctl enable --now kottz-arch-packages.timer
+  fi
+}
+
+install_caddy() {
+  install -d -m 0755 /etc/caddy
+  install -m 0644 "$ARCH_PACKAGES_DIR/infra/caddy/Caddyfile" /etc/caddy/Caddyfile
+  caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+  systemctl enable --now caddy.service
+}
+
+install_credentials_if_possible() {
+  if [[ -r $AGE_KEY_FILE && -f $SECRETS_FILE ]]; then
+    SOPS_AGE_KEY_FILE=$AGE_KEY_FILE \
+      KOTTZ_SECRETS_FILE=$SECRETS_FILE \
+      "$ARCH_PACKAGES_DIR/scripts/install-credentials"
+  fi
+}
+
+prepare_bootstrap_github_token() {
+  [[ -r $AGE_KEY_FILE && -f $SECRETS_FILE ]] || return
+
+  local tmp
+  tmp=$(mktemp)
+  if SOPS_AGE_KEY_FILE=$AGE_KEY_FILE \
+      sops --decrypt --input-type yaml --output-type yaml \
+        --extract '["github"]["token"]' "$SECRETS_FILE" >"$tmp" &&
+      [[ -s $tmp ]]; then
+    chown root:"$SERVICE_GROUP" "$tmp"
+    chmod 0440 "$tmp"
+    BOOTSTRAP_GITHUB_TOKEN_FILE=$tmp
+    trap 'rm -f "$BOOTSTRAP_GITHUB_TOKEN_FILE"' EXIT
+  else
+    rm -f "$tmp"
+  fi
+}
+
+ensure_secrets_repo() {
+  if [[ ${KOTTZ_CLONE_SECRETS:-1} != 1 ]]; then
+    return
+  fi
+
+  if [[ -d $SECRETS_DIR/.git ]]; then
+    # The secrets repo is often manually placed first because it contains the
+    # token needed for other GitHub operations. Avoid fetching it before
+    # credentials are installed.
+    return
+  fi
+
+  ensure_repo "$SECRETS_REPO" "$SECRETS_DIR"
+}
+
+print_next_steps() {
+  if [[ ! -f $AGE_KEY_FILE ]]; then
+    cat <<EOF
+
+Missing age identity:
+  $AGE_KEY_FILE
+
+Install the arch-packages age private key from Bitwarden there, then run:
+  chown root:root $AGE_KEY_FILE
+  chmod 0400 $AGE_KEY_FILE
+  SOPS_AGE_KEY_FILE=$AGE_KEY_FILE KOTTZ_SECRETS_FILE=$SECRETS_FILE \\
+    $ARCH_PACKAGES_DIR/scripts/install-credentials
+EOF
+  fi
+
+  if ! command -v opencode >/dev/null 2>&1; then
+    cat <<EOF
+
+opencode is not installed. Deterministic package maintenance can still run, but
+agent fallback requires a working opencode executable in the service PATH.
+EOF
+  fi
+}
+
+install_packages
+ensure_user
+install_sudoers
+ensure_directories
+install_caddy
+sync_current_checkout_if_needed
+ensure_secrets_repo
+install_credentials_if_possible
+prepare_bootstrap_github_token
+ensure_source_repos
+install_units
+
+"$ARCH_PACKAGES_DIR/infra/lxc/doctor" || true
+print_next_steps

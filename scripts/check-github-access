@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# shellcheck source=scripts/common.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh"
+# shellcheck source=scripts/credentials
+source "$ROOT/scripts/credentials"
+
+GITHUB_TOKEN=$(credential_value github_token GITHUB_TOKEN || true)
+
+github_repo_from_url() {
+  local url=$1
+  local repo=
+
+  case $url in
+    git@github.com:*)
+      repo=${url#git@github.com:}
+      ;;
+    https://github.com/*)
+      repo=${url#https://github.com/}
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  repo=${repo%.git}
+  printf '%s\n' "$repo"
+}
+
+check_repo_with_token() {
+  local repo=$1
+  local response status http_code
+  response=$(mktemp)
+
+  set +e
+  http_code=$(curl --silent --show-error --output "$response" --write-out '%{http_code}' \
+    --config - <<CURL
+url = "https://api.github.com/repos/$repo"
+header = "Authorization: Bearer ${GITHUB_TOKEN}"
+header = "Accept: application/vnd.github+json"
+header = "X-GitHub-Api-Version: 2022-11-28"
+CURL
+  )
+  status=$?
+  set -e
+
+  if [[ $status -ne 0 ]]; then
+    printf 'fail: GitHub API check failed for %s: curl exit %s\n' "$repo" "$status"
+    rm -f "$response"
+    return 1
+  fi
+
+  if [[ $http_code != 200 ]]; then
+    printf 'fail: GitHub API check failed for %s: HTTP %s\n' "$repo" "$http_code"
+    rm -f "$response"
+    return 1
+  fi
+
+  if command -v jq >/dev/null 2>&1; then
+    if jq -e '(.permissions.push == true) or (.permissions.admin == true)' "$response" >/dev/null; then
+      printf 'ok: GitHub token can push %s\n' "$repo"
+      rm -f "$response"
+      return 0
+    fi
+    printf 'fail: GitHub token can read %s but does not report push permission\n' "$repo"
+    rm -f "$response"
+    return 1
+  fi
+
+  printf 'ok: GitHub token can read %s; install jq to verify push permission\n' "$repo"
+  rm -f "$response"
+}
+
+check_repo_with_git() {
+  local repo=$1
+  local path=$2
+
+  if [[ ! -d $path/.git ]]; then
+    printf 'warn: skipping %s; missing local repo %s\n' "$repo" "$path"
+    return 0
+  fi
+
+  if "$ROOT/scripts/git-with-credentials" git -C "$path" ls-remote --exit-code origin HEAD >/dev/null 2>&1; then
+    printf 'ok: Git origin is readable for %s\n' "$repo"
+    return 0
+  fi
+
+  printf 'fail: Git origin is not readable for %s\n' "$repo"
+  return 1
+}
+
+status=0
+declare -A checked=()
+
+check_one_repo() {
+  local repo=$1
+  local path=$2
+
+  [[ -n ${checked[$repo]+set} ]] && return
+  checked[$repo]=1
+
+  if [[ -n ${GITHUB_TOKEN:-} ]]; then
+    check_repo_with_token "$repo" || status=1
+  else
+    check_repo_with_git "$repo" "$path" || status=1
+  fi
+}
+
+for package in "${PACKAGES[@]}"; do
+  repo=$(github_repo_from_url "${PACKAGE_ORIGIN[$package]}") || continue
+  check_one_repo "$repo" "$(source_dir "$package")"
+done
+
+repo=$(github_repo_from_url "$(git -C "$ROOT" remote get-url origin)") || repo=kottz/arch-packages
+check_one_repo "$repo" "$ROOT"
+
+exit "$status"

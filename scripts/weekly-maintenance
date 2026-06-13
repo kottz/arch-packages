@@ -11,19 +11,107 @@ if [[ ${1:-} == "--push" ]]; then
   shift
 fi
 
+LAST_STAGE_LOG=
+
+run_stage_command() {
+  local package=$1
+  local stage=$2
+  shift 2
+
+  local timestamp safe_package safe_stage log_file status
+  timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+  safe_package=${package//[^A-Za-z0-9_.-]/_}
+  safe_stage=${stage//[^A-Za-z0-9_.-]/_}
+  log_file=$LOG_DIR/stage-$safe_package-$safe_stage-$timestamp.log
+  LAST_STAGE_LOG=$log_file
+
+  umask 077
+  set +e
+  "$@" > >(tee "$log_file") 2> >(tee -a "$log_file" >&2)
+  status=$?
+  set -e
+
+  return "$status"
+}
+
 run_or_agent() {
   local package=$1
   local stage=$2
   shift 2
 
-  if "$@"; then
+  local initial_status
+  set +e
+  run_stage_command "$package" "$stage" "$@"
+  initial_status=$?
+  set -e
+
+  if [[ $initial_status -eq 0 ]]; then
     return 0
   fi
 
-  if [[ ${RUN_CODEX_ON_FAILURE:-1} == 1 ]]; then
-    "$ROOT/scripts/run-codex-maintenance" "$package" "$stage"
+  local summary
+  summary=$(summarize_failure_log "$LAST_STAGE_LOG")
+
+  if [[ ${RUN_OPENCODE_ON_FAILURE:-1} != 1 ]]; then
+    "$ROOT/scripts/notify-telegram" failure \
+      "arch-packages stage '$stage' failed for '$package': $summary; log: $LAST_STAGE_LOG" || true
+    return "$initial_status"
   fi
-  return 1
+
+  "$ROOT/scripts/notify-telegram" warning \
+    "arch-packages stage '$stage' failed for '$package': $summary; running opencode recovery; log: $LAST_STAGE_LOG" || true
+
+  if ! "$ROOT/scripts/run-opencode-maintenance" "$package" "$stage"; then
+    "$ROOT/scripts/notify-telegram" failure \
+      "opencode recovery failed for arch-packages stage '$stage' package '$package'" || true
+    return 1
+  fi
+
+  if run_stage_command "$package" "$stage-retry" "$@"; then
+    "$ROOT/scripts/notify-telegram" recovered \
+      "arch-packages stage '$stage' passed after opencode recovery for '$package'" || true
+    return 0
+  fi
+
+  local retry_status=$?
+  summary=$(summarize_failure_log "$LAST_STAGE_LOG")
+  "$ROOT/scripts/notify-telegram" failure \
+    "arch-packages stage '$stage' still fails after opencode recovery for '$package': $summary; log: $LAST_STAGE_LOG" || true
+  return "$retry_status"
+}
+
+run_required_stage() {
+  local package=$1
+  local stage=$2
+  shift 2
+
+  local status
+  set +e
+  run_stage_command "$package" "$stage" "$@"
+  status=$?
+  set -e
+
+  if [[ $status -eq 0 ]]; then
+    return 0
+  fi
+
+  local summary
+  summary=$(summarize_failure_log "$LAST_STAGE_LOG")
+  "$ROOT/scripts/notify-telegram" failure \
+    "arch-packages stage '$stage' failed for '$package': $summary; log: $LAST_STAGE_LOG" || true
+  return "$status"
+}
+
+ensure_clean_repo() {
+  local repo=$1
+  local label=$2
+
+  if [[ -n $(git -C "$repo" status --porcelain) ]]; then
+    "$ROOT/scripts/notify-telegram" failure \
+      "refusing to push dirty repo after maintenance: $label ($repo)" || true
+    git -C "$repo" status --short >&2
+    die "refusing to push dirty repo: $label ($repo)"
+  fi
 }
 
 mkdir -p "$LOG_DIR"
@@ -43,7 +131,10 @@ run_or_agent all publish "$ROOT/scripts/publish-repo" "${packages[@]}"
 if [[ $push_changes == 1 ]]; then
   for package in "${packages[@]}"; do
     repo=$(source_dir "$package")
-    git -C "$repo" push origin "${PACKAGE_BRANCH[$package]}"
+    ensure_clean_repo "$repo" "$package source"
+    run_required_stage "$package" push-source \
+      "$ROOT/scripts/git-with-credentials" git -C "$repo" push --force-with-lease origin "${PACKAGE_BRANCH[$package]}"
   done
-  git -C "$ROOT" push origin HEAD
+  ensure_clean_repo "$ROOT" "arch-packages"
+  run_required_stage all push-packages "$ROOT/scripts/git-with-credentials" git -C "$ROOT" push origin HEAD
 fi

@@ -3,9 +3,19 @@ Description=Build and publish kottz Arch packages
 
 [Service]
 Type=oneshot
+User=kottz
+Group=kottz
 WorkingDirectory=/srv/kottz/packaging/arch-packages
 Environment=KOTTZ_SOURCE_ROOT=/srv/kottz/src
 Environment=KOTTZ_REPO_DIR=/srv/kottz/repo/x86_64
-Environment=RUN_CODEX_ON_FAILURE=1
-# Set CODEX_DANGEROUS=1 only inside a dedicated, disposable builder.
-ExecStart=/srv/kottz/packaging/arch-packages/scripts/weekly-maintenance --push
+Environment=KOTTZ_BUILD_JOBS=4
+Environment=OPENCODE_MODEL=openrouter/moonshotai/kimi-k2.7-code
+Environment=RUN_OPENCODE_ON_FAILURE=1
+LoadCredentialEncrypted=telegram_bot_token:/etc/credstore.encrypted/kottz.arch-packages.telegram_bot_token
+LoadCredentialEncrypted=telegram_chat_id:/etc/credstore.encrypted/kottz.arch-packages.telegram_chat_id
+LoadCredentialEncrypted=openrouter_api_key:/etc/credstore.encrypted/kottz.arch-packages.openrouter_api_key
+LoadCredentialEncrypted=github_token:/etc/credstore.encrypted/kottz.arch-packages.github_token
+RuntimeDirectory=kottz-arch-packages
+RuntimeDirectoryMode=0700
+PrivateTmp=true
+ExecStart=/srv/kottz/packaging/arch-packages/scripts/maintenance-entrypoint --push

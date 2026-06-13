@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+message=${*:-"arch-packages Telegram notification test from ${HOSTNAME:-$(hostname)}"}
+
+# shellcheck source=scripts/credentials
+source "$ROOT/scripts/credentials"
+
+if ! credential_path telegram_bot_token >/dev/null ||
+    ! credential_path telegram_chat_id >/dev/null; then
+  printf 'error: telegram credentials must be available through systemd credentials\n' >&2
+  exit 1
+fi
+
+"$ROOT/scripts/notify-telegram" test "$message"
+printf 'ok: Telegram notification sent\n'

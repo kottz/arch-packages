@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# shellcheck source=scripts/common.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh"
+# shellcheck source=scripts/credentials
+source "$ROOT/scripts/credentials"
+
+package=${1:-all}
+stage=${2:-maintenance}
+
+command -v opencode >/dev/null 2>&1 || die "opencode is required"
+command -v timeout >/dev/null 2>&1 || die "timeout is required"
+command -v jq >/dev/null 2>&1 || die "jq is required"
+
+OPENCODE_MODEL=${OPENCODE_MODEL:-openrouter/moonshotai/kimi-k2.7-code}
+OPENROUTER_API_KEY_FILE=$(credential_required_path openrouter_api_key)
+
+mkdir -p "$LOG_DIR"
+umask 077
+
+timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+safe_package=${package//[^A-Za-z0-9_.-]/_}
+safe_stage=${stage//[^A-Za-z0-9_.-]/_}
+log_file=$LOG_DIR/opencode-$safe_package-$safe_stage-$timestamp.jsonl
+timeout_value=${KOTTZ_OPENCODE_TIMEOUT:-6h}
+
+prompt=$(cat <<EOF
+Maintain kottz Arch packages after a deterministic automation failure.
+
+Failed stage: $stage
+Package scope: $package
+
+Read AGENTS.md in this repo first. Use the repo-local skills under
+.agents/skills when relevant. For source changes, also read the AGENTS.md and
+.agents/skills content in the relevant source repo under $SOURCE_ROOT.
+
+Expected local layout:
+- Package repo: $ROOT
+- Source root: $SOURCE_ROOT
+- Binary repo output: $REPO_DIR
+
+Goal:
+- Diagnose the failed stage.
+- Rebase source forks if needed.
+- Preserve the workspace-groups feature behavior.
+- Fix build or packaging failures.
+- Run the relevant source tests and package checks when practical.
+- Update PKGBUILD/.SRCINFO only when needed.
+- Commit successful changes in affected repos.
+- Before exiting successfully, make sure affected Git working trees are clean
+  except ignored build artifacts.
+
+Do not push. Do not publish broken packages. Do not remove old package
+artifacts. Do not print secrets.
+EOF
+)
+
+printf 'running opencode recovery; log: %s\n' "$log_file"
+
+OPENCODE_CONFIG_CONTENT=$(jq -nc \
+  --arg model "$OPENCODE_MODEL" \
+  --arg key_file "$OPENROUTER_API_KEY_FILE" \
+  '{
+    model: $model,
+    provider: {
+      openrouter: {
+        options: {
+          apiKey: "{file:\($key_file)}",
+          timeout: 600000,
+          chunkTimeout: 60000
+        }
+      }
+    }
+  }')
+export OPENCODE_CONFIG_CONTENT
+
+set +e
+timeout --foreground "$timeout_value" \
+  opencode run \
+    --format json \
+    --model "$OPENCODE_MODEL" \
+    --dir "$ROOT" \
+    --title "arch-packages $stage $package" \
+    "$prompt" \
+  >"$log_file" 2>&1
+status=$?
+set -e
+
+if [[ $status -ne 0 ]]; then
+  "$ROOT/scripts/notify-telegram" failure \
+    "opencode exited $status for arch-packages stage '$stage' package '$package'; log: $log_file" || true
+  printf 'error: opencode exited %s; log: %s\n' "$status" "$log_file" >&2
+  exit "$status"
+fi
+
+printf 'opencode recovery completed; log: %s\n' "$log_file"

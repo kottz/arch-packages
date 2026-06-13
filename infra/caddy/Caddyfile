@@ -1,0 +1,13 @@
+{
+	admin off
+}
+
+http://:8080 {
+	root * /srv/kottz/repo
+	file_server browse
+
+	header {
+		Cache-Control "public, max-age=300"
+		X-Content-Type-Options "nosniff"
+	}
+}

@@ -13,8 +13,13 @@ declare -A PACKAGE_SOURCE_DIR=(
 )
 
 declare -A PACKAGE_ORIGIN=(
-  [sway-groups]=git@github.com:kottz/sway.git
-  [waybar-groups]=git@github.com:kottz/Waybar.git
+  [sway-groups]=https://github.com/kottz/sway.git
+  [waybar-groups]=https://github.com/kottz/Waybar.git
+)
+
+declare -A PACKAGE_FETCH_URL=(
+  [sway-groups]=https://github.com/kottz/sway.git
+  [waybar-groups]=https://github.com/kottz/Waybar.git
 )
 
 declare -A PACKAGE_UPSTREAM=(
@@ -33,8 +38,8 @@ declare -A PACKAGE_TAG_MATCH=(
 )
 
 declare -A PACKAGE_SOURCE_TEST=(
-  [sway-groups]='meson compile -C build && meson test -C build'
-  [waybar-groups]='meson compile -C build && meson test -C build'
+  [sway-groups]='meson compile -C build -j "${KOTTZ_BUILD_JOBS:-4}" && meson test -C build'
+  [waybar-groups]='meson compile -C build -j "${KOTTZ_BUILD_JOBS:-4}" && meson test -C build'
 )
 
 declare -A PACKAGE_SKILL=(

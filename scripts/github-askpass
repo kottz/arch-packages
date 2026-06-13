@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+prompt=${1:-}
+case $prompt in
+  *Username*)
+    printf '%s\n' x-access-token
+    ;;
+  *Password*)
+    [[ -n ${KOTTZ_GITHUB_TOKEN_FILE:-} && -r ${KOTTZ_GITHUB_TOKEN_FILE:-} ]] || exit 1
+    cat "$KOTTZ_GITHUB_TOKEN_FILE"
+    ;;
+  *)
+    printf '\n'
+    ;;
+esac
