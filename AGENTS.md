@@ -43,19 +43,19 @@ Server layout can differ. Use `KOTTZ_SOURCE_ROOT`, `KOTTZ_REPO_DIR`, and
 - Keep plaintext secrets out of this repo. Use SOPS files in `kottz-secrets`
   as the portable source of truth, then install host-bound systemd encrypted
   credentials with `scripts/install-credentials`.
-- GitHub operations on the builder use HTTPS plus the `github_token` systemd
+- GitHub operations on the builder VM use HTTPS plus the `github_token` systemd
   credential through `scripts/git-with-credentials`; do not assume SSH keys
-  exist inside a raw LXC.
+  exist on the VM.
 - The builder also needs a configured Git `user.name` and `user.email` for the
   `kottz` service user. Authentication credentials do not provide commit
   identity for automated rebases.
 - Source checkouts under `/srv/kottz/src` are managed by the package builder.
   `scripts/rebase-source` syncs the local source branch to `origin/<branch>`
   before rebasing so manual force-pushes to the fork are picked up cleanly.
-- LXC/bootstrap work belongs under `infra/lxc/`; update `docs/secrets.md` if
+- VM/bootstrap work belongs under `infra/vm/`; update `docs/secrets.md` if
   secret names or paths change.
 - The package web server is Caddy serving `/srv/kottz/repo` on internal port
-  `8080`; external TLS termination belongs to the Proxmox reverse proxy.
+  `8080`; external TLS termination belongs to the reverse proxy.
 
 ## Verification
 
@@ -76,11 +76,11 @@ scripts/weekly-maintenance
 For builder host changes:
 
 ```bash
-bash -n infra/lxc/bootstrap-arch-builder infra/lxc/doctor
+bash -n infra/vm/bootstrap-arch-builder infra/vm/doctor
 bash -n scripts/*
 scripts/doctor-secrets
 caddy validate --config infra/caddy/Caddyfile --adapter caddyfile
-infra/lxc/doctor
+infra/vm/doctor
 ```
 
 When changing Sway or Waybar source behavior, read the `AGENTS.md` in that

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 if [[ $EUID -ne 0 ]]; then
-  printf 'error: run this script as root inside the Arch LXC\n' >&2
+  printf 'error: run this script as root on the Arch builder VM\n' >&2
   exit 1
 fi
 
@@ -286,5 +286,5 @@ prepare_bootstrap_github_token
 ensure_source_repos
 install_units
 
-"$ARCH_PACKAGES_DIR/infra/lxc/doctor" || true
+"$ARCH_PACKAGES_DIR/infra/vm/doctor" || true
 print_next_steps

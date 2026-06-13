@@ -1,0 +1,4 @@
+interface:
+  display_name: "Arch Packages VM Host"
+  short_description: "Operate the kottz Arch package builder VM."
+  default_prompt: "Use $arch-packages-vm-host to maintain or bootstrap the kottz Arch package builder VM using the repo scripts and SOPS secrets conventions."

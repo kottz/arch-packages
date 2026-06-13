@@ -172,7 +172,7 @@ summarize_failure_log() {
   if grep -Eiq \
     'mount: .*/dev: permission denied|failed to setup chroot|systemd-nspawn.*permission denied|Operation not permitted.*mount' \
     "$log_file"; then
-    printf 'clean chroot setup is blocked by container mount permissions'
+    printf 'clean chroot mount setup failed'
     return
   fi
 

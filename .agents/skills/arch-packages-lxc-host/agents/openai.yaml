@@ -1,4 +1,0 @@
-interface:
-  display_name: "Arch Packages LXC Host"
-  short_description: "Operate the kottz Arch package builder LXC."
-  default_prompt: "Maintain or bootstrap the kottz Arch package builder LXC using the repo scripts and SOPS secrets conventions."

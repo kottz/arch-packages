@@ -1,16 +1,16 @@
 ---
-name: arch-packages-lxc-host
-description: Bootstrap and operate the kottz Arch package builder LXC, including systemd maintenance units, SOPS/age secrets, Telegram notifications, source checkout layout, and secure service-user conventions. Use when Codex is asked to set up, validate, or change the package builder host automation.
+name: arch-packages-vm-host
+description: Bootstrap and operate the kottz Arch package builder VM, including systemd maintenance units, SOPS/age secrets, Telegram notifications, source checkout layout, clean chroot builds, and secure service-user conventions. Use when Codex is asked to set up, validate, or change the package builder host automation.
 ---
 
-# Arch Packages LXC Host
+# Arch Packages VM Host
 
 Use this skill in `kottz/arch-packages` when changing builder-host automation.
 
 ## Workflow
 
 1. Read `AGENTS.md`.
-2. Keep deterministic host setup in `infra/lxc/`.
+2. Keep deterministic host setup in `infra/vm/`.
 3. Keep runtime execution scripts in `scripts/`.
 4. Keep systemd units in `systemd/`.
 5. Keep plaintext secrets out of this repo.
@@ -38,17 +38,13 @@ branches from `origin/<branch>` before rebasing.
 
 Package builds must use Arch devtools clean chroots through `mkarchroot` and
 `makechrootpkg`. Do not add a host `makepkg` fallback to the automated builder.
-On Proxmox LXC, clean chroot builds require nested mount support; if the bind
-mount probe fails, enable CT nesting/keyctl or use a VM.
 Bootstrap should remove incomplete clean-chroot directories when
 `etc/makepkg.conf` is missing.
-Do not enable `PrivateTmp` on the maintenance unit; clean chroot builds need
-predictable mount namespace behavior.
 
 ## Secrets
 
 Use SOPS with age as the portable source of truth. The private age identity is
-stored in Bitwarden and installed on the LXC as `root:root` mode `0400`.
+stored in Bitwarden and installed on the VM as `root:root` mode `0400`.
 Runtime delivery uses systemd encrypted credentials installed with
 `scripts/install-credentials`.
 
@@ -70,23 +66,23 @@ read/write access.
 
 When `github.token` is present, builder Git operations should use
 `scripts/git-with-credentials` and HTTPS remotes. Do not assume SSH keys exist
-inside a raw LXC.
+on the builder VM.
 
 ## Commands
 
 Validate host scripts:
 
 ```bash
-bash -n infra/lxc/bootstrap-arch-builder infra/lxc/doctor
+bash -n infra/vm/bootstrap-arch-builder infra/vm/doctor
 bash -n scripts/*
 caddy validate --config infra/caddy/Caddyfile --adapter caddyfile
-infra/lxc/doctor
+infra/vm/doctor
 ```
 
-Bootstrap inside a fresh Arch LXC:
+Bootstrap inside a fresh Arch VM:
 
 ```bash
-infra/lxc/bootstrap-arch-builder
+infra/vm/bootstrap-arch-builder
 ```
 
 Install host-bound credentials:

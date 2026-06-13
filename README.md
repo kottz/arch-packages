@@ -9,7 +9,7 @@ Personal Arch package repository for packages built from kottz-maintained forks.
 - `scripts/`: deterministic maintenance, build, and publish commands.
 - `.agents/skills/`: repo-local agent skills for packaging maintenance.
 - `systemd/`: optional weekly automation units.
-- `infra/lxc/`: Arch LXC bootstrap and health-check scripts.
+- `infra/vm/`: Arch VM bootstrap and health-check scripts.
 - `infra/caddy/`: internal static file server config for the pacman repo.
 - `docs/secrets.md`: SOPS/age secret handling notes.
 
@@ -64,25 +64,25 @@ export KOTTZ_BUILD_JOBS=4
 Package builds use Arch devtools clean chroots through `mkarchroot` and
 `makechrootpkg`; they should not fall back to host `makepkg` builds.
 
-## Builder LXC
+## Builder VM
 
-Bootstrap a fresh Arch LXC with:
+Bootstrap a fresh Arch VM with:
 
 ```bash
 pacman -Syu --needed --noconfirm git openssh
 git clone https://github.com/kottz/arch-packages.git /srv/kottz/packaging/arch-packages
-/srv/kottz/packaging/arch-packages/infra/lxc/bootstrap-arch-builder
+/srv/kottz/packaging/arch-packages/infra/vm/bootstrap-arch-builder
 ```
 
-If the repos are private, place `kottz-secrets` on the LXC first and install the
+If the repos are private, place `kottz-secrets` on the VM first and install the
 age key from Bitwarden before running the bootstrap. The builder converts SOPS
 secrets into host-bound systemd encrypted credentials and uses the GitHub token
 credential for HTTPS fetch/push. See `docs/secrets.md`.
 
 ## Pacman Repo
 
-The LXC serves `/srv/kottz/repo` on internal HTTP port `8080` using Caddy. Put
-your existing Proxmox reverse proxy in front of that and add this to clients:
+The VM serves `/srv/kottz/repo` on internal HTTP port `8080` using Caddy. Put
+your existing reverse proxy in front of that and add this to clients:
 
 ```ini
 [kottz]

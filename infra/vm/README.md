@@ -1,7 +1,7 @@
-# Arch LXC Builder
+# Arch VM Builder
 
-This directory contains bootstrap and health-check scripts for a dedicated Arch
-Linux LXC that builds and publishes the personal `kottz` package repo.
+This directory contains bootstrap and health-check scripts for a small Arch
+Linux VM that builds and publishes the personal `kottz` package repo.
 
 ## Model
 
@@ -24,41 +24,28 @@ passes.
 
 ## Bootstrap
 
-From a fresh Arch LXC:
+From a fresh Arch VM:
 
 ```bash
 pacman -Syu --needed --noconfirm git openssh
 git clone https://github.com/kottz/arch-packages.git /srv/kottz/packaging/arch-packages
-/srv/kottz/packaging/arch-packages/infra/lxc/bootstrap-arch-builder
+/srv/kottz/packaging/arch-packages/infra/vm/bootstrap-arch-builder
 ```
 
 If `arch-packages` or `kottz-secrets` are private, place those repos by whatever
 one-time method you have available, then install the age identity from Bitwarden
 before running the bootstrap. The bootstrap installs systemd credentials and
 uses the GitHub token credential for source repo clones.
+
 It also repairs ownership of `/srv/kottz/packaging`, `/srv/kottz/src`, and
 `/srv/kottz/repo` so the `kottz` service user can write logs, build outputs,
 and package repository files. It configures a Git identity for the `kottz`
 service user so automated rebases can create rewritten commits without an
-interactive login. Package builds use `mkarchroot` and `makechrootpkg`; the
-maintenance path should not build packages directly with host `makepkg`.
+interactive login.
 
-The Proxmox container must allow nested mount operations. If `doctor` reports
-`clean chroot bind mounts allowed` as failed, enable nesting for the CT from the
-Proxmox host or move the builder to a small VM.
-The maintenance unit intentionally does not use `PrivateTmp`; Arch devtools
-clean chroot builds need predictable mount namespace behavior.
-
-Typical Proxmox host command:
-
-```bash
-pct set <CTID> -features nesting=1,keyctl=1
-```
-
-Stop and start the CT after changing container features.
-
-If `mkarchroot` was interrupted or failed before the container had the right
-features, rerun the bootstrap. It removes incomplete clean-chroot directories
+Package builds use `mkarchroot` and `makechrootpkg`; the maintenance path should
+not build packages directly with host `makepkg`. If `mkarchroot` was interrupted
+or failed, rerun the bootstrap. It removes incomplete clean-chroot directories
 when `etc/makepkg.conf` is missing.
 
 Run Git commands in the managed checkouts as `kottz`, not root:
@@ -77,7 +64,7 @@ SOPS_AGE_KEY_FILE=/etc/kottz/age/arch-packages.txt \
 ## Checks
 
 ```bash
-/srv/kottz/packaging/arch-packages/infra/lxc/doctor
+/srv/kottz/packaging/arch-packages/infra/vm/doctor
 /srv/kottz/packaging/arch-packages/scripts/run-with-credentials \
   /srv/kottz/packaging/arch-packages/scripts/doctor-secrets
 /srv/kottz/packaging/arch-packages/scripts/run-with-credentials \
