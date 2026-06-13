@@ -31,6 +31,10 @@ root; `makepkg` needs an unprivileged user. Bootstrap must ensure
 `kottz`, and must configure a Git `user.name` and `user.email` for that user so
 automated rebases can create commits.
 
+Treat source checkouts under `/srv/kottz/src` as managed by the builder.
+Maintenance scripts should run Git operations as `kottz` and sync source
+branches from `origin/<branch>` before rebasing.
+
 ## Secrets
 
 Use SOPS with age as the portable source of truth. The private age identity is

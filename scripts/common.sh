@@ -65,6 +65,51 @@ ensure_source_repo() {
   fi
 }
 
+ensure_git_worktree_ready() {
+  local repo=$1
+  local label=$2
+  local state path
+
+  for state in rebase-merge rebase-apply MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD; do
+    path=$(git -C "$repo" rev-parse --git-path "$state" 2>/dev/null) ||
+      die "$label is not a git repository: $repo"
+    if [[ -e $path ]]; then
+      die "$label has an in-progress Git operation ($state); resolve or abort it before continuing"
+    fi
+  done
+
+  if [[ -n $(git -C "$repo" status --porcelain=v1) ]]; then
+    git -C "$repo" status --short >&2
+    die "$label has uncommitted changes"
+  fi
+}
+
+sync_source_branch_from_origin() {
+  local package=$1
+  local repo
+  local branch
+  local remote_ref
+  local current=
+  local remote=
+
+  repo=$(source_dir "$package")
+  branch=${PACKAGE_BRANCH[$package]}
+  remote_ref=refs/remotes/origin/$branch
+
+  ensure_git_worktree_ready "$repo" "$package source"
+
+  if git -C "$repo" rev-parse --verify --quiet "$branch" >/dev/null; then
+    current=$(git -C "$repo" rev-parse "$branch")
+  fi
+  remote=$(git -C "$repo" rev-parse "$remote_ref")
+
+  if [[ $current != "$remote" ]]; then
+    printf '%s: syncing local branch %s to origin/%s\n' "$package" "$branch" "$branch"
+  fi
+
+  git -C "$repo" switch -C "$branch" "$remote_ref"
+}
+
 latest_upstream_tag() {
   local package=$1
   local repo
@@ -121,6 +166,13 @@ summarize_failure_log() {
     'Please tell me who you are|empty ident name|unable to auto-detect email address' \
     "$log_file"; then
     printf 'Git committer identity is not configured'
+    return
+  fi
+
+  if grep -Eiq \
+    'CONFLICT [(]|could not apply [0-9a-f]+|Resolve all conflicts manually|You can instead skip this commit|rebase in progress' \
+    "$log_file"; then
+    printf 'Git rebase or merge conflict needs attention'
     return
   fi
 

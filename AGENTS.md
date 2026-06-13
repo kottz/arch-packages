@@ -46,6 +46,9 @@ Server layout can differ. Use `KOTTZ_SOURCE_ROOT` and `KOTTZ_REPO_DIR`.
 - The builder also needs a configured Git `user.name` and `user.email` for the
   `kottz` service user. Authentication credentials do not provide commit
   identity for automated rebases.
+- Source checkouts under `/srv/kottz/src` are managed by the package builder.
+  `scripts/rebase-source` syncs the local source branch to `origin/<branch>`
+  before rebasing so manual force-pushes to the fork are picked up cleanly.
 - LXC/bootstrap work belongs under `infra/lxc/`; update `docs/secrets.md` if
   secret names or paths change.
 - The package web server is Caddy serving `/srv/kottz/repo` on internal port

@@ -17,7 +17,7 @@ for package in $(selected_packages "$@"); do
   latest=$(latest_upstream_tag "$package")
   [[ -n $latest ]] || die "$package has no matching upstream tag"
 
-  git -C "$repo" switch "$branch"
+  sync_source_branch_from_origin "$package"
   git -C "$repo" rebase "$latest"
   run_source_tests "$package"
 done

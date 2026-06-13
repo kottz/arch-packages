@@ -41,6 +41,12 @@ and package repository files. It configures a Git identity for the `kottz`
 service user so automated rebases can create rewritten commits without an
 interactive login.
 
+Run Git commands in the managed checkouts as `kottz`, not root:
+
+```bash
+sudo -H -u kottz -- git -C /srv/kottz/packaging/arch-packages status
+```
+
 Manual credential install:
 
 ```bash
