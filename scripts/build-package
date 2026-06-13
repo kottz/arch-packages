@@ -5,12 +5,25 @@ set -euo pipefail
 # shellcheck source=scripts/common.sh
 source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh"
 
+CHROOT_DIR=${KOTTZ_CHROOT_DIR:-/srv/kottz/chroot}
+CHROOT_BASE=$CHROOT_DIR/root
+
+command -v mkarchroot >/dev/null 2>&1 || die "mkarchroot is required; install devtools"
+command -v makechrootpkg >/dev/null 2>&1 || die "makechrootpkg is required; install devtools"
+command -v sudo >/dev/null 2>&1 || die "sudo is required for clean chroot builds"
+
+ensure_clean_chroot() {
+  if [[ -d $CHROOT_BASE ]]; then
+    return
+  fi
+
+  printf 'creating clean chroot at %s\n' "$CHROOT_BASE"
+  sudo -n mkarchroot "$CHROOT_BASE" base-devel
+}
+
+ensure_clean_chroot
+
 for package in $(selected_packages "$@"); do
   pkgdir=$(package_dir "$package")
-  if command -v extra-x86_64-build >/dev/null 2>&1; then
-    (cd "$pkgdir" && extra-x86_64-build)
-  else
-    command -v makepkg >/dev/null 2>&1 || die "makepkg is required"
-    (cd "$pkgdir" && makepkg -Csf --noconfirm)
-  fi
+  (cd "$pkgdir" && sudo -n makechrootpkg -c -r "$CHROOT_DIR")
 done

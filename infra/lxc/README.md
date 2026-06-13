@@ -9,6 +9,7 @@ Linux LXC that builds and publishes the personal `kottz` package repo.
 - Keep source forks under `/srv/kottz/src`.
 - Keep this repo under `/srv/kottz/packaging/arch-packages`.
 - Serve the binary repo from `/srv/kottz/repo` on internal HTTP port `8080`.
+- Build packages with Arch devtools clean chroots under `/srv/kottz/chroot`.
 - Keep encrypted SOPS secrets in `/srv/kottz/secrets/kottz-secrets`.
 - Keep the age private key outside Git at `/etc/kottz/age/arch-packages.txt`.
 
@@ -39,7 +40,8 @@ It also repairs ownership of `/srv/kottz/packaging`, `/srv/kottz/src`, and
 `/srv/kottz/repo` so the `kottz` service user can write logs, build outputs,
 and package repository files. It configures a Git identity for the `kottz`
 service user so automated rebases can create rewritten commits without an
-interactive login.
+interactive login. Package builds use `mkarchroot` and `makechrootpkg`; the
+maintenance path should not build packages directly with host `makepkg`.
 
 Run Git commands in the managed checkouts as `kottz`, not root:
 

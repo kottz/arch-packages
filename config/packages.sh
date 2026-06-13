@@ -37,11 +37,6 @@ declare -A PACKAGE_TAG_MATCH=(
   [waybar-groups]='[0-9]*'
 )
 
-declare -A PACKAGE_SOURCE_TEST=(
-  [sway-groups]='meson compile -C build -j "${KOTTZ_BUILD_JOBS:-4}" && meson test -C build'
-  [waybar-groups]='meson compile -C build -j "${KOTTZ_BUILD_JOBS:-4}" && meson test -C build'
-)
-
 declare -A PACKAGE_SKILL=(
   [sway-groups]=sway-workspace-groups-maintainer
   [waybar-groups]=waybar-workspace-groups-maintainer

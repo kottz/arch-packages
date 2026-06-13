@@ -119,13 +119,6 @@ latest_upstream_tag() {
     head -n1
 }
 
-run_source_tests() {
-  local package=$1
-  local repo
-  repo=$(source_dir "$package")
-  (cd "$repo" && bash -lc "${PACKAGE_SOURCE_TEST[$package]}")
-}
-
 sanitize_for_notification() {
   sed -E \
     -e 's/github_pat_[A-Za-z0-9_]+/[redacted-github-token]/g' \

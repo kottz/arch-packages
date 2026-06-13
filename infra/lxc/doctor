@@ -6,6 +6,7 @@ ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
 SERVICE_USER=${KOTTZ_SERVICE_USER:-kottz}
 SOURCE_ROOT=${KOTTZ_SOURCE_ROOT:-/srv/kottz/src}
 REPO_DIR=${KOTTZ_REPO_DIR:-/srv/kottz/repo/x86_64}
+CHROOT_DIR=${KOTTZ_CHROOT_DIR:-/srv/kottz/chroot}
 SECRETS_FILE=${KOTTZ_SECRETS_FILE:-/srv/kottz/secrets/kottz-secrets/secrets/arch-packages.enc.yaml}
 AGE_KEY_FILE=${SOPS_AGE_KEY_FILE:-/etc/kottz/age/arch-packages.txt}
 CREDSTORE_DIR=${KOTTZ_CREDSTORE_DIR:-/etc/credstore.encrypted}
@@ -68,6 +69,10 @@ check_source_repo() {
 
 check "git available" command -v git
 check "makepkg available" command -v makepkg
+check "mkarchroot available" command -v mkarchroot
+check "makechrootpkg available" command -v makechrootpkg
+check "arch-nspawn available" command -v arch-nspawn
+check "systemd-nspawn available" command -v systemd-nspawn
 check "repo-add available" command -v repo-add
 check "age available" command -v age
 check "caddy available" command -v caddy
@@ -87,6 +92,7 @@ fi
 
 check "source root writable" test -w "$SOURCE_ROOT"
 check "repo dir writable" test -w "$REPO_DIR"
+check "chroot parent exists" test -d "$CHROOT_DIR"
 
 if command -v sudo >/dev/null 2>&1 && id -u "$SERVICE_USER" >/dev/null 2>&1; then
   check "package checkout writable by $SERVICE_USER" sudo -u "$SERVICE_USER" test -w "$ROOT"
@@ -94,6 +100,8 @@ if command -v sudo >/dev/null 2>&1 && id -u "$SERVICE_USER" >/dev/null 2>&1; the
   check "repo dir writable by $SERVICE_USER" sudo -u "$SERVICE_USER" test -w "$REPO_DIR"
   check "git user.name configured for $SERVICE_USER" sudo -H -u "$SERVICE_USER" git config --global --get user.name
   check "git user.email configured for $SERVICE_USER" sudo -H -u "$SERVICE_USER" git config --global --get user.email
+  check "sudo mkarchroot allowed for $SERVICE_USER" sudo -H -u "$SERVICE_USER" sudo -n -l /usr/bin/mkarchroot
+  check "sudo makechrootpkg allowed for $SERVICE_USER" sudo -H -u "$SERVICE_USER" sudo -n -l /usr/bin/makechrootpkg
 fi
 
 if [[ -f $ROOT/config/packages.sh ]] && command -v sudo >/dev/null 2>&1 && id -u "$SERVICE_USER" >/dev/null 2>&1; then

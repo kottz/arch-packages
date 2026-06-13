@@ -20,6 +20,7 @@ Use this skill in `kottz/arch-packages` when changing builder-host automation.
 - Package repo: `/srv/kottz/packaging/arch-packages`
 - Source repos: `/srv/kottz/src/{sway,Waybar}`
 - Binary repo: `/srv/kottz/repo/x86_64`
+- Clean chroot: `/srv/kottz/chroot`
 - Internal package HTTP server: Caddy on `:8080`, root `/srv/kottz/repo`
 - Encrypted secrets repo: `/srv/kottz/secrets/kottz-secrets`
 - Builder age identity: `/etc/kottz/age/arch-packages.txt`
@@ -34,6 +35,9 @@ automated rebases can create commits.
 Treat source checkouts under `/srv/kottz/src` as managed by the builder.
 Maintenance scripts should run Git operations as `kottz` and sync source
 branches from `origin/<branch>` before rebasing.
+
+Package builds must use Arch devtools clean chroots through `mkarchroot` and
+`makechrootpkg`. Do not add a host `makepkg` fallback to the automated builder.
 
 ## Secrets
 

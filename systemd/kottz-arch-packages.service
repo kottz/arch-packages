@@ -8,6 +8,7 @@ Group=kottz
 WorkingDirectory=/srv/kottz/packaging/arch-packages
 Environment=KOTTZ_SOURCE_ROOT=/srv/kottz/src
 Environment=KOTTZ_REPO_DIR=/srv/kottz/repo/x86_64
+Environment=KOTTZ_CHROOT_DIR=/srv/kottz/chroot
 Environment=KOTTZ_BUILD_JOBS=4
 Environment=OPENCODE_MODEL=openrouter/moonshotai/kimi-k2.7-code
 Environment=RUN_OPENCODE_ON_FAILURE=1

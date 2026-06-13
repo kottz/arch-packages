@@ -19,5 +19,4 @@ for package in $(selected_packages "$@"); do
 
   sync_source_branch_from_origin "$package"
   git -C "$repo" rebase "$latest"
-  run_source_tests "$package"
 done

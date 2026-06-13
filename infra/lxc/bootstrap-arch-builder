@@ -17,6 +17,7 @@ PACKAGING_ROOT=${KOTTZ_PACKAGING_ROOT:-/srv/kottz/packaging}
 ARCH_PACKAGES_DIR=${KOTTZ_ARCH_PACKAGES_DIR:-"$PACKAGING_ROOT/arch-packages"}
 SOURCE_ROOT=${KOTTZ_SOURCE_ROOT:-/srv/kottz/src}
 REPO_DIR=${KOTTZ_REPO_DIR:-/srv/kottz/repo/x86_64}
+CHROOT_DIR=${KOTTZ_CHROOT_DIR:-/srv/kottz/chroot}
 SECRETS_ROOT=${KOTTZ_SECRETS_ROOT:-/srv/kottz/secrets}
 SECRETS_DIR=${KOTTZ_SECRETS_DIR:-"$SECRETS_ROOT/kottz-secrets"}
 SECRETS_FILE=${KOTTZ_SECRETS_FILE:-"$SECRETS_DIR/secrets/arch-packages.enc.yaml"}
@@ -88,7 +89,7 @@ install_packages() {
 install_sudoers() {
   local sudoers=/etc/sudoers.d/kottz-arch-packages
   cat >"$sudoers" <<EOF
-$SERVICE_USER ALL=(root) NOPASSWD: /usr/bin/pacman
+$SERVICE_USER ALL=(root) NOPASSWD: /usr/bin/pacman, /usr/bin/mkarchroot, /usr/bin/makechrootpkg
 EOF
   chmod 0440 "$sudoers"
   visudo -cf "$sudoers" >/dev/null
@@ -103,6 +104,7 @@ ensure_directories() {
   install -d -m 0755 -o "$SERVICE_USER" -g "$SERVICE_GROUP" "$PACKAGING_ROOT"
   install -d -m 0755 -o "$SERVICE_USER" -g "$SERVICE_GROUP" "$SOURCE_ROOT"
   install -d -m 0755 -o "$SERVICE_USER" -g "$SERVICE_GROUP" "$REPO_DIR"
+  install -d -m 0755 -o root -g root "$CHROOT_DIR"
   install -d -m 0755 -o "$SERVICE_USER" -g "$SERVICE_GROUP" "$SECRETS_ROOT"
   install -d -m 0700 -o root -g root "$AGE_DIR"
 }

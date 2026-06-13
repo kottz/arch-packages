@@ -20,13 +20,16 @@ swayway-groups/
   arch-packages/
 ```
 
-Server layout can differ. Use `KOTTZ_SOURCE_ROOT` and `KOTTZ_REPO_DIR`.
+Server layout can differ. Use `KOTTZ_SOURCE_ROOT`, `KOTTZ_REPO_DIR`, and
+`KOTTZ_CHROOT_DIR`.
 
 ## Package Policy
 
 - Package names use the `-groups` suffix.
 - Packages must conflict with and provide the upstream package they replace.
-- Publish only after `makepkg`/clean-chroot build succeeds.
+- Publish only after a clean-chroot package build succeeds.
+- Package builds should use Arch devtools `mkarchroot`/`makechrootpkg`; do not
+  add a host `makepkg` fallback to the automated builder path.
 - Keep previous package files in the repo directory for manual rollback.
 - Prefer deterministic scripts in `scripts/`; call Opencode only when rebase,
   build, or package metadata maintenance fails.

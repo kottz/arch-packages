@@ -51,6 +51,7 @@ On a server, set:
 ```bash
 export KOTTZ_SOURCE_ROOT=/srv/kottz/src
 export KOTTZ_REPO_DIR=/srv/kottz/repo/x86_64
+export KOTTZ_CHROOT_DIR=/srv/kottz/chroot
 export OPENCODE_MODEL=openrouter/moonshotai/kimi-k2.7-code
 ```
 
@@ -59,6 +60,9 @@ Builds default to four compile jobs:
 ```bash
 export KOTTZ_BUILD_JOBS=4
 ```
+
+Package builds use Arch devtools clean chroots through `mkarchroot` and
+`makechrootpkg`; they should not fall back to host `makepkg` builds.
 
 ## Builder LXC
 
