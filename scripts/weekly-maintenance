@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# shellcheck source=scripts/common.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh"
+
+push_changes=0
+if [[ ${1:-} == "--push" ]]; then
+  push_changes=1
+  shift
+fi
+
+run_or_agent() {
+  local package=$1
+  local stage=$2
+  shift 2
+
+  if "$@"; then
+    return 0
+  fi
+
+  if [[ ${RUN_CODEX_ON_FAILURE:-1} == 1 ]]; then
+    "$ROOT/scripts/run-codex-maintenance" "$package" "$stage"
+  fi
+  return 1
+}
+
+mkdir -p "$LOG_DIR"
+
+packages=($(selected_packages "$@"))
+
+run_or_agent all check-updates "$ROOT/scripts/check-updates" "${packages[@]}"
+
+for package in "${packages[@]}"; do
+  run_or_agent "$package" rebase "$ROOT/scripts/rebase-source" "$package"
+  run_or_agent "$package" srcinfo "$ROOT/scripts/update-srcinfo" "$package"
+  run_or_agent "$package" build "$ROOT/scripts/build-package" "$package"
+done
+
+run_or_agent all publish "$ROOT/scripts/publish-repo" "${packages[@]}"
+
+if [[ $push_changes == 1 ]]; then
+  for package in "${packages[@]}"; do
+    repo=$(source_dir "$package")
+    git -C "$repo" push origin "${PACKAGE_BRANCH[$package]}"
+  done
+  git -C "$ROOT" push origin HEAD
+fi

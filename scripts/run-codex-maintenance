@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# shellcheck source=scripts/common.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh"
+
+package=${1:-all}
+stage=${2:-maintenance}
+
+command -v codex >/dev/null 2>&1 || die "codex is required"
+
+args=(
+  exec
+  --cd "$ROOT"
+  --ask-for-approval never
+)
+
+if [[ ${CODEX_DANGEROUS:-0} == 1 ]]; then
+  args+=(--dangerously-bypass-approvals-and-sandbox)
+else
+  args+=(--sandbox workspace-write)
+fi
+
+for p in "${PACKAGES[@]}"; do
+  repo=$(source_dir "$p")
+  [[ -d $repo ]] && args+=(--add-dir "$repo")
+done
+
+prompt=$(cat <<EOF
+Maintain kottz Arch packages after failure in stage: $stage
+Package scope: $package
+
+Read AGENTS.md in this repo first. For source changes, also read the AGENTS.md
+in the relevant source repo under $SOURCE_ROOT. Use the repo-local skills under
+.agents/skills when applicable.
+
+Goal:
+- Rebase source forks if needed.
+- Preserve the workspace-groups feature behavior.
+- Fix build or packaging failures.
+- Run the relevant source tests and package checks.
+- Update PKGBUILD/.SRCINFO only when needed.
+- Commit successful changes in the affected repo(s).
+
+Do not publish broken packages. Do not remove old package artifacts.
+EOF
+)
+
+codex "${args[@]}" "$prompt"

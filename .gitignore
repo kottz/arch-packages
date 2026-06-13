@@ -1,0 +1,8 @@
+build/
+logs/
+repo/
+*.pkg.tar.*
+*.pkg.tar.*.sig
+*.src.tar.*
+src/
+pkg/

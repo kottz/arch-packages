@@ -1,0 +1,11 @@
+[Unit]
+Description=Build and publish kottz Arch packages
+
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/kottz/packaging/arch-packages
+Environment=KOTTZ_SOURCE_ROOT=/srv/kottz/src
+Environment=KOTTZ_REPO_DIR=/srv/kottz/repo/x86_64
+Environment=RUN_CODEX_ON_FAILURE=1
+# Set CODEX_DANGEROUS=1 only inside a dedicated, disposable builder.
+ExecStart=/srv/kottz/packaging/arch-packages/scripts/weekly-maintenance --push

@@ -1,0 +1,107 @@
+# Maintainer: kottz <kottz@users.noreply.github.com>
+# Based on the official Arch Linux waybar package.
+
+pkgname=waybar-groups
+pkgver=0.15.0.r0.g246cd2f6
+pkgrel=1
+pkgdesc='Highly customizable Wayland bar with kottz Sway workspace groups'
+arch=('x86_64')
+url="https://github.com/kottz/Waybar"
+license=('MIT')
+depends=(
+    'atkmm'
+    'cairomm'
+    'fmt'
+    'glib2'
+    'glibc'
+    'glibmm'
+    'gpsd'
+    'gtk-layer-shell'
+    'gtk3'
+    'gtkmm3'
+    'jack'
+    'jsoncpp'
+    'libdbusmenu-gtk3'
+    'libevdev'
+    'libgcc'
+    'libinput'
+    'libmpdclient'
+    'libnl'
+    'libpipewire'
+    'libpulse'
+    'libsigc++'
+    'libstdc++'
+    'libwireplumber'
+    'libxkbcommon'
+    'playerctl'
+    'sndio'
+    'spdlog'
+    'systemd-libs'
+    'upower'
+    'wayland'
+)
+makedepends=(
+    'catch2'
+    'cmake'
+    'meson'
+    'glib2-devel'
+    'scdoc'
+    'wayland-protocols'
+)
+provides=('waybar')
+conflicts=('waybar')
+backup=(
+    etc/xdg/waybar/config.jsonc
+    etc/xdg/waybar/style.css
+)
+optdepends=(
+    'otf-font-awesome: Icons in the default configuration'
+)
+source=("git+https://github.com/kottz/Waybar.git#branch=workspace-groups")
+b2sums=('SKIP')
+
+pkgver() {
+    cd Waybar
+    local version
+    version=$(git describe --tags --long --match '[0-9]*' 2>/dev/null) ||
+        version="0.15.0-0-g$(git rev-parse --short HEAD)"
+    printf '%s\n' "$version" | sed 's/\([^-]*-g\)/r\1/;s/-/./g'
+}
+
+build() {
+    cd Waybar
+    meson --prefix=/usr \
+          --buildtype=plain \
+          --auto-features=enabled \
+          --wrap-mode=nodownload \
+          -Dcpp_std=c++20 \
+          -Dexperimental=true \
+          -Dcava=disabled \
+          -Dtests=enabled \
+          build
+    meson compile -C build
+}
+
+check() {
+    cd Waybar
+    meson test -C build --print-errorlogs --no-rebuild --suite waybar
+}
+
+package() {
+    depends+=(
+      'libatkmm-1.6.so'
+      'libcairomm-1.0.so'
+      'libgtk-3.so'
+      'libjack.so'
+      'libjsoncpp.so'
+      'libpipewire-0.3.so'
+      'libsndio.so'
+      'libspdlog.so'
+      'libudev.so'
+      'libupower-glib.so'
+    )
+
+    cd Waybar
+    meson install -C build --destdir "$pkgdir"
+    install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+}

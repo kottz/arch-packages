@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# shellcheck source=scripts/common.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh"
+
+for package in $(selected_packages "$@"); do
+  pkgdir=$(package_dir "$package")
+  if command -v extra-x86_64-build >/dev/null 2>&1; then
+    (cd "$pkgdir" && extra-x86_64-build)
+  else
+    command -v makepkg >/dev/null 2>&1 || die "makepkg is required"
+    (cd "$pkgdir" && makepkg -Csf --noconfirm)
+  fi
+done

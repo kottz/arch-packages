@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# shellcheck source=scripts/common.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh"
+
+for package in $(selected_packages "$@"); do
+  ensure_source_repo "$package"
+  repo=$(source_dir "$package")
+  branch=${PACKAGE_BRANCH[$package]}
+
+  git -C "$repo" fetch origin "$branch" --tags
+  git -C "$repo" fetch upstream --tags
+
+  latest=$(latest_upstream_tag "$package")
+  current=$(git -C "$repo" rev-parse --short HEAD)
+
+  if [[ -z $latest ]]; then
+    printf '%s: no upstream tags matching %s; current %s\n' \
+      "$package" "${PACKAGE_TAG_MATCH[$package]}" "$current"
+  elif git -C "$repo" merge-base --is-ancestor "$latest" HEAD; then
+    printf '%s: current %s already contains latest upstream tag %s\n' \
+      "$package" "$current" "$latest"
+  else
+    printf '%s: current %s needs rebase onto upstream tag %s\n' \
+      "$package" "$current" "$latest"
+  fi
+done

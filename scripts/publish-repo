@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# shellcheck source=scripts/common.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh"
+
+command -v repo-add >/dev/null 2>&1 || die "repo-add is required"
+
+mkdir -p "$REPO_DIR"
+
+for package in $(selected_packages "$@"); do
+  pkgdir=$(package_dir "$package")
+  while IFS= read -r -d '' artifact; do
+    cp -f "$artifact" "$REPO_DIR/"
+  done < <(find "$pkgdir" -maxdepth 1 -type f -name '*.pkg.tar.*' ! -name '*.sig' -print0)
+done
+
+shopt -s nullglob
+packages=("$REPO_DIR"/*.pkg.tar.*)
+[[ ${#packages[@]} -gt 0 ]] || die "no package artifacts found in $REPO_DIR"
+
+repo-add "$REPO_DIR/$KOTTZ_REPO_NAME.db.tar.zst" "${packages[@]}"
