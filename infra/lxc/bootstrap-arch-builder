@@ -100,6 +100,14 @@ ensure_directories() {
   install -d -m 0700 -o root -g root "$AGE_DIR"
 }
 
+ensure_service_ownership() {
+  local path
+  for path in "$PACKAGING_ROOT" "$SOURCE_ROOT" "$REPO_DIR"; do
+    [[ -e $path ]] || continue
+    chown -R "$SERVICE_USER:$SERVICE_GROUP" "$path"
+  done
+}
+
 ensure_repo() {
   local url=$1
   local path=$2
@@ -226,6 +234,7 @@ install_packages
 ensure_user
 install_sudoers
 ensure_directories
+ensure_service_ownership
 install_caddy
 sync_current_checkout_if_needed
 ensure_secrets_repo

@@ -26,7 +26,9 @@ Use this skill in `kottz/arch-packages` when changing builder-host automation.
 - Systemd encrypted credentials: `/etc/credstore.encrypted/kottz.arch-packages.*`
 
 The systemd service runs as the `kottz` user. Do not make package builds run as
-root; `makepkg` needs an unprivileged user.
+root; `makepkg` needs an unprivileged user. Bootstrap must ensure
+`/srv/kottz/packaging`, `/srv/kottz/src`, and `/srv/kottz/repo` are writable by
+`kottz`.
 
 ## Secrets
 

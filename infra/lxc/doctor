@@ -50,6 +50,12 @@ fi
 check "source root writable" test -w "$SOURCE_ROOT"
 check "repo dir writable" test -w "$REPO_DIR"
 
+if command -v sudo >/dev/null 2>&1 && id -u "$SERVICE_USER" >/dev/null 2>&1; then
+  check "package checkout writable by $SERVICE_USER" sudo -u "$SERVICE_USER" test -w "$ROOT"
+  check "source root writable by $SERVICE_USER" sudo -u "$SERVICE_USER" test -w "$SOURCE_ROOT"
+  check "repo dir writable by $SERVICE_USER" sudo -u "$SERVICE_USER" test -w "$REPO_DIR"
+fi
+
 if command -v caddy >/dev/null 2>&1; then
   check "Caddy config valid" caddy validate --config "$ROOT/infra/caddy/Caddyfile" --adapter caddyfile
 fi

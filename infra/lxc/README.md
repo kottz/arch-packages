@@ -35,6 +35,9 @@ If `arch-packages` or `kottz-secrets` are private, place those repos by whatever
 one-time method you have available, then install the age identity from Bitwarden
 before running the bootstrap. The bootstrap installs systemd credentials and
 uses the GitHub token credential for source repo clones.
+It also repairs ownership of `/srv/kottz/packaging`, `/srv/kottz/src`, and
+`/srv/kottz/repo` so the `kottz` service user can write logs, build outputs,
+and package repository files.
 
 Manual credential install:
 
