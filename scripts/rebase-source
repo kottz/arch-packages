@@ -11,7 +11,7 @@ for package in $(selected_packages "$@"); do
   branch=${PACKAGE_BRANCH[$package]}
 
   "$ROOT/scripts/git-with-credentials" git -C "$repo" fetch "${PACKAGE_FETCH_URL[$package]}" \
-    "$branch:refs/remotes/origin/$branch" --tags
+    "+$branch:refs/remotes/origin/$branch" --tags
   "$ROOT/scripts/git-with-credentials" git -C "$repo" fetch upstream --tags
 
   latest=$(latest_upstream_tag "$package")
