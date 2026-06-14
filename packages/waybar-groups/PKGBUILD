@@ -43,6 +43,7 @@ depends=(
 makedepends=(
     'catch2'
     'cmake'
+    'git'
     'meson'
     'glib2-devel'
     'scdoc'
