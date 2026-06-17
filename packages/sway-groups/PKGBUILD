@@ -2,7 +2,7 @@
 # Based on the official Arch Linux sway package.
 
 pkgname=sway-groups
-pkgver=1.12.r0.g454123e4
+pkgver=1.12.r0.g6c7d01a2
 epoch=1
 pkgrel=1
 pkgdesc='Tiling Wayland compositor with kottz workspace groups'
