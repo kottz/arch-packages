@@ -64,6 +64,33 @@ export KOTTZ_BUILD_JOBS=4
 Package builds use Arch devtools clean chroots through `mkarchroot` and
 `makechrootpkg`; they should not fall back to host `makepkg` builds.
 
+## Manual Install
+
+If you only want to install locally built packages and do not want to configure
+the pacman repo, install the package files directly:
+
+```bash
+sudo pacman -U \
+  packages/sway-groups/sway-groups-[0-9]*.pkg.tar.* \
+  packages/waybar-groups/waybar-groups-[0-9]*.pkg.tar.*
+```
+
+The `[0-9]*` pattern avoids the matching `*-debug` packages. If there are
+multiple old package files in those directories, inspect them first and install
+the exact files you want:
+
+```bash
+ls -lh packages/sway-groups/*.pkg.tar.*
+ls -lh packages/waybar-groups/*.pkg.tar.*
+
+sudo pacman -U \
+  packages/sway-groups/<sway-package-file>.pkg.tar.zst \
+  packages/waybar-groups/<waybar-package-file>.pkg.tar.zst
+```
+
+The packages `provide` and `conflict` with upstream `sway` and `waybar`, so
+pacman will replace the stock packages during installation.
+
 ## Builder VM
 
 Bootstrap a fresh Arch VM with:
